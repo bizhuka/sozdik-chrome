@@ -21,4 +21,8 @@ The extension requires the following permissions to function properly:
 The extension requires access to:
 
 - `https://sozdik.kz/` - To access the dictionary service
-- `https://chatgpt.com/` - For translation and morphological analysis features 
+- `https://chatgpt.com/` - For translation and morphological analysis features
+
+
+## Privacy Policy
+This extension does not collect, store, or share any user data
