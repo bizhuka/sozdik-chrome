@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Sozdik.kz",
+  "version": "1.0",
+  "description": "Sozdik.kz",
+  "icons": {
+    "192": "icon.png"
+  },
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "host_permissions": [
+    "https://sozdik.kz/",
+    "https://chatgpt.com/"
+  ],
+  "permissions": [
+    "scripting",
+    "tabs",
+    "activeTab",
+    "storage",
+    "contextMenus",
+    "downloads"
+  ]
+}
