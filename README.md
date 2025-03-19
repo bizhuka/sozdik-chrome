@@ -2,6 +2,10 @@
 
 This Chrome extension provides integration with Sozdik.kz, a Kazakh-Russian dictionary service.
 
+<iframe width="640" height="360" allowfullscreen="true" controls="true"
+src="https://www.youtube.com/watch?v=ThNuHfj6DWg">
+</iframe>
+
 ## Extension Permissions
 
 The extension requires the following permissions to function properly:
@@ -13,7 +17,6 @@ The extension requires the following permissions to function properly:
 | `activeTab` | Required to access the currently active tab for text selection |
 | `storage` | Required to store user preferences and settings |
 | `contextMenus` | Required for the right-click dictionary lookup feature |
-| `downloads` | Required to download history as CSV |
 
 
 ## Host Permissions
@@ -21,7 +24,6 @@ The extension requires the following permissions to function properly:
 The extension requires access to:
 
 - `https://sozdik.kz/` - To access the dictionary service
-- `https://chatgpt.com/` - For translation and morphological analysis features
 
 
 ## Privacy Policy

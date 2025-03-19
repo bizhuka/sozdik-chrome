@@ -1,120 +1,65 @@
-export const languages = [
-    {
-        description: "Қазақ сөзін іздеу",
-        prefix: "kk/ru",
-        latin: false,
-        rule: (value) => !value || /^[а-яА-ЯёЁӘәҒғІіҢңӨөҰұүҮҚқһ\s-]+$/.test(value) || "Қате қазақ әріптері табылған!",
-    },
-    {
-        description: "Qazaq sözın ızdeu",
-        prefix: "kk-Latn/ru",
-        latin: true,
-        rule: (value) => !value || /^[a-zA-ZÄäĞğIıİiÑñÖöŞşŪūÜü\s-]+$/.test(value) || "Qate qazaq áripteri tabylǵan!",
-    },
-    {
-        description: "Поиск слова на русском",
-        prefix: "ru/kk",
-        latin: false,
-        rule: (value) => !value || /^[а-яА-ЯёЁ\s-]+$/.test(value) || "Недопустимые русские кириллические символы!",
-    },
-    {
-        description: "Поиск слова на русском",
-        prefix: "ru/kk-Latn",
-        latin: true,
-        rule: (value) => !value || /^[а-яА-ЯёЁ\s-]+$/.test(value) || "Недопустимые русские кириллические символы!",
+import Dexie from "./lib/dexie.min.mjs";
+import { translations, cyrillicToLatin2021, getText, languages } from './translations.js';
+
+class DbProxy extends Dexie {
+    constructor() {
+        super('sozdik');
+
+        // New version with prefix+front as primary key
+        this.version(1).stores({
+            history: '[prefix+front], date',
+        });
+
+        this.history = this.table('history');
     }
-];
+}
 
 export const util = {
+    dbProxy: null,
     options: {
         lightTheme: false,
-        useLatin: false,
-        inRussian: false,
-        morphology: false,
+        language: 'қаз',
         languages_order: [],
-        csvDelimiter: ';',
         baseDelay: 1500,
-        historyLimit: 10
+        historyLimit: 10,
+        translatorMethod: 'chatgpt',
+        calque: false,
+        ankiDeck: '',
+        ankiModel: '',
+    },
+
+    async init() {
+        this.dbProxy = new DbProxy();
+        await this.read_options();
+        return this;
+    },
+
+    open_side_panel(params) {
+        // Get the active tab without using await
+        chrome.tabs.query(params, (tabs) => {
+            if (tabs && tabs.length > 0) {
+                chrome.sidePanel.open({ tabId: tabs[0].id });
+            }
+        });
+    },
+
+    async get_sozdik_tabs() {
+        return await chrome.tabs.query({
+            url: "https://sozdik.kz/*"
+        });
     },
 
     cyrillicToLatin2021(text) {
-        if (!text) return '';
-        
-        const cyrillicToLatinMap = {
-            'А': 'A', 'а': 'a',
-            'Ә': 'Ä', 'ә': 'ä',
-            'Б': 'B', 'б': 'b',
-            'В': 'V', 'в': 'v',
-            'Г': 'G', 'г': 'g',
-            'Ғ': 'Ğ', 'ғ': 'ğ',
-            'Д': 'D', 'д': 'd',
-            'Е': 'E', 'е': 'e',
-            'Ё': 'E', 'ё': 'e',
-            'Ж': 'J', 'ж': 'j',
-            'З': 'Z', 'з': 'z',
-            'И': 'İ', 'и': 'i',
-            'Й': 'İ', 'й': 'i',
-            'К': 'K', 'к': 'k',
-            'Қ': 'Q', 'қ': 'q',
-            'Л': 'L', 'л': 'l',
-            'М': 'M', 'м': 'm',
-            'Н': 'N', 'н': 'n',
-            'Ң': 'Ñ', 'ң': 'ñ',
-            'О': 'O', 'о': 'o',
-            'Ө': 'Ö', 'ө': 'ö',
-            'П': 'P', 'п': 'p',
-            'Р': 'R', 'р': 'r',
-            'С': 'S', 'с': 's',
-            'Т': 'T', 'т': 't',
-            'У': 'U', 'у': 'u',
-            'Ұ': 'Ū', 'ұ': 'ū',
-            'Ү': 'Ü', 'ү': 'ü',
-            'Ф': 'F', 'ф': 'f',
-            'Х': 'H', 'х': 'h',
-            'Һ': 'H', 'һ': 'h',
-            'Ц': 'Ts', 'ц': 'ts',
-            'Ч': 'Ch', 'ч': 'ch',
-            'Ш': 'Ş', 'ш': 'ş',
-            'Щ': 'Şş', 'щ': 'şş',
-            'Ъ': '', 'ъ': '',
-            'Ы': 'Y', 'ы': 'y',
-            'І': 'I', 'і': 'ı',
-            'Ь': '', 'ь': '',
-            'Э': 'E', 'э': 'e',
-            'Ю': 'İu', 'ю': 'iu',
-            'Я': 'İa', 'я': 'ia'
-        };
-
-        return text.split('').map(char => cyrillicToLatinMap[char] || char).join('');
+        return cyrillicToLatin2021(text);
     },
 
-    getText(key) {
-        const pair = {
-            'Language': [ 'Қазақша', 'Русский' ],
-            'Light': [ 'Ақшыл', 'Светлая' ],
-            'Dark': [ 'Қара', 'Темная' ],
-            'Latin': [ 'Латынша', 'Латинница' ],
-            'Cyrillic': [ 'Кириллица', 'Кириллица' ],
-            'Morphology': [ 'Морфологиялық талдау жасау', 'Морфологический разбор' ],
-            'Translate': [ 'Аудару', 'Перевод' ],
-            'Do Morphology': [ 'Морфологиялық талдау', 'Морфологический разбор' ],
-            'Do Translate': [ 'Орысшадан қазақшаға немесе қазақшадан орысшаға аудар', 'Перевести с русского на казахский или с казахского на русский' ],
-            'Text': ['Мәтін', 'Текст'],
-            'History Limit': ['Жүктелген сөздер лимиті', 'Лимит слов на скачивание'],
-            'Request Delay (ms)': ['Кідіріс ұзақтығы (мс)', 'Задержка запроса (мс)'],
-            'CSV Delimiter': ['CSV бөлгіш таңбасы', 'CSV разделитель'],
-            'Download': ['Жүктеу', 'Скачать'],
-            'Sozdik.kz About': ['Sozdik.kz', 'Sozdik.kz'],
-            'Plugin About': ['Қосымша туралы', 'О расширении'], 
-        }[key];
-
-        if(this.options.inRussian)
-            return pair[1];
-        return !this.options.useLatin ? pair[0] : this.cyrillicToLatin2021(pair[0]);
+    getText(key, args = []) {
+        return getText(key, this.options, translations, args);
     },
+
     async read_options() {
         try {
-            const opt = await chrome.storage.local.get("options");
+            const opt = await chrome.storage.local.get("options");            
             this._set_options(opt.options || {});
         } catch (e) {
             console.error("Error loading options from localStorage:", e);
@@ -132,8 +77,8 @@ export const util = {
 
             // Add any remaining languages that weren't in the saved order
             languages.forEach(lang => {
-                if (!orderedLanguages.find(l => l.prefix === lang.prefix)) 
-                    orderedLanguages.push(lang);                
+                if (!orderedLanguages.find(l => l.prefix === lang.prefix))
+                    orderedLanguages.push(lang);
             });
 
             // Replace the languages array contents while keeping the reference
@@ -159,11 +104,114 @@ export const util = {
         }
     },
 
-    search_in_sozdik(prefix, word) {
-        chrome.tabs.create({
-            url: `https://sozdik.kz/kk/dictionary/translate/${prefix}/${encodeURIComponent(word)}/`,
-            active: true,
+    async get_sozdik_content(params) {
+        let tabId = params.tabId;
+
+        // First tab with sozdik.kz url
+        if (!tabId) {
+            const [tab] = await chrome.tabs.query({ url: "https://sozdik.kz/*", currentWindow: true });
+            if (!tab)
+                return null;
+            tabId = tab.id;
+        }
+        const result = await chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            args: [params.url || null, params.history || false],
+            function: async (url, history) => {
+                async function fetchWithRetry(url, retries = 0) {
+                    const MAX_RETRIES = 3;
+                    const MAX_DELAY = 5000;
+
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return await response.text();
+                    } catch (error) {
+                        if (retries >= MAX_RETRIES) throw error;
+                        debugger;
+                        await delay(Math.min(baseDelay * Math.pow(2, retries), MAX_DELAY));
+                        return fetchWithRetry(url, retries + 1);
+                    }
+                }
+
+                function get_history_info(doc) {
+                    const historyList = doc.querySelectorAll("#dictionary_history_contents > a");
+                    const result = [];
+                    for (const item of historyList)
+                        result.push({
+                            text: item.querySelector("article > h2")?.textContent || null,
+                            url: item.href
+                        });
+                    return {
+                        items: result,
+                        userName: doc.querySelector(".ig_user_avatar_user_name")?.textContent.split('ID:')[0] || null,
+                    };
+                }
+
+                function get_word_info(doc) {
+                    // Clean the innerHTML using the helper
+                    const article = doc.querySelector("#dictionary_translate_article");
+                    if (!article)
+                        return null;
+
+                    // Remove the first h2 tag if it exists
+                    const firstH2 = article.querySelector('h2');
+                    if (firstH2) {
+                        firstH2.remove();
+                    }
+
+                    // Remove elements with hidden attribute
+                    const hiddenElements = article.querySelectorAll('[hidden]');
+                    hiddenElements.forEach(element => element.remove());
+
+                    // Remove attributes that are not needed
+                    const allElements = article.getElementsByTagName('*');
+                    for (const element of allElements)
+                        Array.from(element.attributes).forEach(attr => {
+                            if (attr.name !== 'open')
+                                element.removeAttribute(attr.name);
+                        });
+
+                    return article.innerHTML
+                        // Remove all the noindex comments
+                        .replace(/<!--\/noindex-->|<!--noindex-->/g, '')
+
+                        // Remove all the new lines and trim the text
+                        .split('\n')
+                        .filter(line => line.trim())
+                        .join('\n')
+                        .trim();
+                }
+                const finalUrl = url ? url : history ? 'https://sozdik.kz/kk/dictionary/history/' : null;
+                const rawHTML = finalUrl ? await fetchWithRetry(finalUrl) : document.documentElement.outerHTML
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(rawHTML, "text/html");
+
+                return history ? get_history_info(doc) : get_word_info(doc);
+            },
         });
+        return result[0].result;
+    },
+
+    async add_to_history(item) {
+        // Delete if exists
+        await this.dbProxy.history.delete([item.prefix, item.front]);
+        if (item.back) {
+            const clone = { ...item };
+
+            clone.date = new Date();
+            await this.dbProxy.history.add(clone);
+        }
+        // Notify that history has been updated
+        chrome.runtime.sendMessage({
+            anki: true,
+            action: "load_history"
+        });
+    },
+
+    async get_history() {
+        return await this.dbProxy.history.orderBy("date").reverse().toArray();
     },
 
     async callMethod(context, message, sendResponse) {
@@ -187,29 +235,65 @@ export const util = {
         return true;
     },
 
-    async downloadCSV(csvRows, filename, delimiter) {
-        if (!csvRows || !Array.isArray(csvRows) || csvRows.length === 0)
-            return;
-
-        const as_line = csvRows.map((obj) =>
-            Object.values(obj)
-                .map((value) => `"${value.toString().replace(/"/g, '""')}"`)
-                .join(delimiter)
-        );
-        const csvContent = "\uFEFF" + as_line.join("\n");
-        const url = `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`;
+    // Anki Connect API functions
+    async ankiConnect(action, params = {}) {
+        const version = 6;
+        const payload = { action, version, params };
 
         try {
-            await chrome.downloads.download({
-                url: url,
-                filename: filename,
-                saveAs: false,
-            }, () => {
-                console.log("Downloaded", filename);
+            const response = await fetch('http://localhost:8765', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
             });
+
+            const responseData = await response.json();
+
+            if (responseData.error) {
+                console.error('Anki Connect error:', responseData.error);
+                throw new Error(responseData.error);
+            }
+
+            return responseData.result;
         } catch (error) {
-            console.error("Error in downloadBlob:", error);
             throw error;
         }
+    },
+
+    async exportToAnki(historyItems) {
+        const results = {
+            success: 0,
+            failed: 0,
+            duplicates: 0,
+            errors: []
+        };
+
+        for (const item of historyItems) {
+            if (!item.front || !item.back) continue;
+
+            try {
+                const note = {
+                    deckName: this.options.ankiDeck,
+                    modelName: this.options.ankiModel,
+                    fields: {
+                        Front: item.front,
+                        Back: item.back
+                    },
+                };
+                await this.ankiConnect('addNote', { note });
+                results.success++;
+            } catch (error) {
+                console.log(error);
+                if (error.message.includes('it is a duplicate')) {
+                    results.duplicates++;
+                } else {
+                    results.failed++;
+                    results.errors.push({ item, error: error.message });
+                }
+            }
+        }
+        return results;
     },
 }

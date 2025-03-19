@@ -1,6 +1,10 @@
 <template>
-    <div :key="languageKey">
-        <v-label density="compact">{{ TitleText ? util.getText(TitleText) : '' }}</v-label>
+    <!-- :key="languageKey" -->
+    <div class="d-flex flex-column align-center justify-center mx-auto">
+        <div class="d-flex align-center">            
+            <!-- <v-icon v-if="icon" :icon="icon" class="me-2" /> -->
+            <v-label density="compact">{{ TitleText }}</v-label>
+        </div>
 
         <v-breadcrumbs v-if="items && items.length" :items="items" density="compact">
             <!-- >>>>>> divider=">" -->
@@ -9,6 +13,7 @@
             </template>
 
             <template v-slot:item="{ item }">
+                <v-icon :icon="item.icon" />
                 <v-breadcrumbs-item :href="item.href" @click.prevent.stop="onClickHandler(item)">
                     {{ item.title }}
                 </v-breadcrumbs-item>
@@ -18,8 +23,6 @@
 </template>
 
 <script>
-import { util } from '../util.js';
-
 export default {
     props: {
         TitleText: {
@@ -40,27 +43,10 @@ export default {
 
     data() {
         return {
-            util,
-            languageKey: 0 // Key to force re-rendering
         };
     },
 
-    mounted() {
-        // Listen for language changes and update the key to force re-rendering
-        window.addEventListener('language-changed', this.updateLanguageKey);
-    },
-    
-    beforeUnmount() {
-        // Clean up the event listener
-        window.removeEventListener('language-changed', this.updateLanguageKey);
-    },
-
-    methods: {
-        updateLanguageKey() {
-            // Increment the key to force re-rendering
-            this.languageKey++;
-        },
-        
+    methods: {        
         onClickHandler(item) {
             if(this.clickHandler)
                 this.clickHandler(item)

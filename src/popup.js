@@ -1,4 +1,4 @@
-import './assets/main.css'
+import './assets/popup.css'
 
 // Plugins
 import { registerPlugins } from '@/plugins'
@@ -9,7 +9,10 @@ import App from './App.vue'
 // Composables
 import { createApp } from 'vue'
 
-const app = createApp(App)
+// Create app with initial props
+const app = createApp(App, {
+  isPopup: true
+})
 
 // Initialize plugins and mount app
 registerPlugins(app).then(() => {

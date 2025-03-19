@@ -12,6 +12,16 @@ import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+
+  build: {
+    rollupOptions: {
+      input: {
+        popup: fileURLToPath(new URL('./popup.html', import.meta.url)),
+        sidepanel: fileURLToPath(new URL('./sidepanel.html', import.meta.url))
+      }
+    }
+  },
+
   plugins: [
     Vue({
       template: { transformAssetUrls }
@@ -47,10 +57,14 @@ export default defineConfig({
           src: 'src/util.js',
           dest: './',
         },
-        // {
-        //   src: 'src/lib/dexie.min.mjs',
-        //   dest: './lib/',
-        // }
+        {
+          src: 'src/translations.js',
+          dest: './',
+        },
+        {
+          src: 'src/lib/dexie.min.mjs',
+          dest: './lib/',
+        }
       ],
     }),
 

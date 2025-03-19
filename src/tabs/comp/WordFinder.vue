@@ -25,7 +25,7 @@
 </template>
 
 <script>
-import { util } from '../util.js';
+// import { util } from '../../util.js';
 
 export default {
     data() {
@@ -52,6 +52,10 @@ export default {
             type: Function,
             required: true,
         },
+        regex: {
+            type: RegExp,
+            required: true,
+        },
         moveUpIcon: {
             type: String,
             required: true
@@ -63,7 +67,25 @@ export default {
     },
     methods: {
         searchWord() {
-            util.search_in_sozdik(this.prefix, this.word);
+            // Remove characters that don't match the regex pattern
+            let filteredWord = '';
+            for (let char of this.word) 
+                if (this.regex.test(char)) {
+                    filteredWord += char;
+                }
+            this.word = filteredWord;
+            if(!this.word)
+                return;
+
+            chrome.runtime.sendMessage({
+                background: true,
+                action: "search_in_sozdik",
+                action_params: [
+                    this.prefix,
+                    this.word]
+            }, (result) => {
+                console.log(result);
+            })
         },
         async fetchSuggestions(newValue) {
             let newWords = [];
