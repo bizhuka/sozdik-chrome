@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sozdik.kz",
-  "version": "1.1",
+  "version": "1.2",
   "description": "Sozdik.kz",
   "icons": {
     "192": "icon.png"
@@ -28,6 +28,11 @@
        }
     }
  },
+  "sidebar_action": {
+    "default_icon": "icon.png",
+    "default_title": "sozdik.kz",
+    "default_panel": "sidepanel.html"
+  },
   "side_panel": {
     "default_path": "sidepanel.html"
   },
@@ -46,5 +51,8 @@
     "storage",
     "contextMenus",
     "sidePanel"
-  ]
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  }
 }

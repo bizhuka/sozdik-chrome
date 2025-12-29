@@ -13,7 +13,13 @@
     "dexie": "^4.0.10",
     "roboto-fontface": "*",
     "vue": "^3.4.31",
-    "vuetify": "^3.7.5"
+    "vuetify": "^3.7.5",
+
+    "sql.js": "^1.13.0",
+    "jszip": "^3.10.1",
+    "big-integer": "^1.6.52",
+    "file-saver": "^2.0.5",
+    "js-sha256": "^0.11.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.5",

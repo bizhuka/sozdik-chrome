@@ -1,4 +1,4 @@
-import Dexie from "./lib/dexie.min.mjs";
+import Dexie from "dexie";
 import { translations, cyrillicToLatin2021, getText, languages } from './translations.js';
 
 class DbProxy extends Dexie {
@@ -114,6 +114,7 @@ export const util = {
                 return null;
             tabId = tab.id;
         }
+
         const result = await chrome.scripting.executeScript({
             target: { tabId: tabId },
             args: [params.url || null, params.history || false],
@@ -123,6 +124,7 @@ export const util = {
                     const MAX_DELAY = 5000;
 
                     try {
+                        // console.log(url)
                         const response = await fetch(url);
                         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                         return await response.text();
@@ -139,7 +141,7 @@ export const util = {
                     const result = [];
                     for (const item of historyList)
                         result.push({
-                            text: item.querySelector("article > h2")?.textContent || null,
+                            text: item.querySelector("article > :is(h1, h2, h3, h4, h5, h6)")?.textContent || null,
                             url: item.href
                         });
                     return {
@@ -183,14 +185,16 @@ export const util = {
                         .trim();
                 }
                 const finalUrl = url ? url : history ? 'https://sozdik.kz/kk/dictionary/history/' : null;
+                // console.log(`finalUrl=${finalUrl}`)
                 const rawHTML = finalUrl ? await fetchWithRetry(finalUrl) : document.documentElement.outerHTML
 
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(rawHTML, "text/html");
-
+                // console.log(history, doc)
                 return history ? get_history_info(doc) : get_word_info(doc);
             },
         });
+
         return result[0].result;
     },
 
@@ -204,6 +208,14 @@ export const util = {
             await this.dbProxy.history.add(clone);
         }
         // Notify that history has been updated
+        chrome.runtime.sendMessage({
+            anki: true,
+            action: "load_history"
+        });
+    },
+
+    async set_archive_status(item, status) {
+        await this.dbProxy.history.update([item.prefix, item.front], { archived: status });
         chrome.runtime.sendMessage({
             anki: true,
             action: "load_history"
@@ -235,65 +247,6 @@ export const util = {
         return true;
     },
 
-    // Anki Connect API functions
-    async ankiConnect(action, params = {}) {
-        const version = 6;
-        const payload = { action, version, params };
+    // Anki Connect API functions - Removed
 
-        try {
-            const response = await fetch('http://localhost:8765', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-
-            const responseData = await response.json();
-
-            if (responseData.error) {
-                console.error('Anki Connect error:', responseData.error);
-                throw new Error(responseData.error);
-            }
-
-            return responseData.result;
-        } catch (error) {
-            throw error;
-        }
-    },
-
-    async exportToAnki(historyItems) {
-        const results = {
-            success: 0,
-            failed: 0,
-            duplicates: 0,
-            errors: []
-        };
-
-        for (const item of historyItems) {
-            if (!item.front || !item.back) continue;
-
-            try {
-                const note = {
-                    deckName: this.options.ankiDeck,
-                    modelName: this.options.ankiModel,
-                    fields: {
-                        Front: item.front,
-                        Back: item.back
-                    },
-                };
-                await this.ankiConnect('addNote', { note });
-                results.success++;
-            } catch (error) {
-                console.log(error);
-                if (error.message.includes('it is a duplicate')) {
-                    results.duplicates++;
-                } else {
-                    results.failed++;
-                    results.errors.push({ item, error: error.message });
-                }
-            }
-        }
-        return results;
-    },
 }

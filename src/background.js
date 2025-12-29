@@ -36,6 +36,7 @@ class MessageHandler {
             chrome.tabs.onUpdated.removeListener(listener);
 
             const back = await util.get_sozdik_content({tabId: tabId});
+            // console.log(`back`, back)
             if(back)
                 util.add_to_history({
                     prefix: prefix,
@@ -96,7 +97,9 @@ class MessageHandler {
             const prefix = parts.length >= 7 ? `${parts[6]}/${parts[7]}` : '';
 
             // Get the content of the word
+            // console.log(word)
             const backHTML = await util.get_sozdik_content({url: word.url});
+            // console.log(word, prefix, backHTML)
 
             // Send a message to the popup
             await chrome.runtime.sendMessage({

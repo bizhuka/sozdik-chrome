@@ -13,15 +13,27 @@
             <v-list-item v-for="(item, index) in searchHistory"
               :key="index"
               :title="item.front"
-              :subtitle="new Date(item.date).toLocaleString()">
+              :subtitle="new Date(item.date).toLocaleString()"
+              :class="{ 'text-grey': item.archived }">
               <template v-slot:prepend>
-                <v-icon @click="deleteHistoryItem(item)" color="grey">mdi-delete</v-icon>
+                <v-tooltip location="top">
+                  <template v-slot:activator="{ props }">
+                    <v-icon 
+                      v-bind="props"
+                      @click="toggleArchiveItem(item)" 
+                      :color="item.archived ? 'primary' : 'grey'"
+                    >
+                      {{ item.archived ? 'mdi-archive-refresh' : 'mdi-archive' }}
+                    </v-icon>
+                  </template>
+                  <span>{{ util.getText(item.archived ? 'Unarchive' : 'Archive') }}</span>
+                </v-tooltip>
               </template>
               <template v-slot:append>
                 <div class="d-flex align-center">
                   <v-tooltip location="top" max-width="300">
                     <template v-slot:activator="{ props }">
-                      <v-btn v-bind="props" icon size="small" @click="searchHistoryItem(item)" color="primary">
+                      <v-btn v-bind="props" icon size="small" @click="searchHistoryItem(item)" :color="item.archived ? 'grey' : 'primary'">
                         <v-icon>mdi-magnify</v-icon>
                       </v-btn>
                     </template>
@@ -74,7 +86,7 @@
       <v-expansion-panel title="Anki">
         <v-expansion-panel-text>
           <div class="d-flex align-center mb-2">
-            <v-btn color="success" variant="text" size="small" prepend-icon="mdi-upload" @click="exportToAnki" :disabled="!searchHistory.length || !optionsData.ankiDeck || !optionsData.ankiModel" class="ml-auto mr-2 text-capitalize" :loading="ankiLoading.export">
+            <v-btn color="success" variant="text" size="small" prepend-icon="mdi-upload" @click="triggerExport" :disabled="!searchHistory.length || exportingToAnki" class="ml-auto mr-2 text-capitalize" :loading="exportingToAnki">
               {{ util.getText('Anki') }}
             </v-btn>
           </div>
@@ -84,72 +96,46 @@
           </v-alert>
 
           <v-row density="compact">
-            <v-col cols="12" sm="6">
-              <v-combobox
-                v-model="optionsData.ankiDeck"
-                :items="ankiDecks.items"
-                :loading="ankiDecks.loading"
+            <v-col cols="12">
+              <v-text-field
+                v-model="deckName"
                 :label="util.getText('Anki Deck')"
-                @click:clear="optionsData.ankiDeck = ''"
-                @update:model-value="saveOptions"
-                clearable
-                @focus="loadAnkiDecks"
+                required
                 density="compact"
-              >
-                <template v-slot:prepend>
-                  <v-icon>mdi-cards</v-icon>
-                </template>
-                <template v-slot:append-inner>
-                  <v-icon @click="loadAnkiDecks" color="primary">mdi-refresh</v-icon>
-                </template>
-              </v-combobox>
+                hide-details
+                readonly
+              ></v-text-field>
             </v-col>
-            <v-col cols="12" sm="6">
-              <v-combobox
-                v-model="optionsData.ankiModel"
-                :items="ankiModels.items"
-                :loading="ankiModels.loading"
+            <v-col cols="12">
+              <v-text-field
+                v-model="nodeType"
                 :label="util.getText('Anki Note Type')"
-                @click:clear="optionsData.ankiModel = ''"
-                @update:model-value="saveOptions"
-                clearable
-                @focus="loadAnkiModels"
+                required
                 density="compact"
-              >
-                <template v-slot:prepend>
-                  <v-icon>mdi-note-text</v-icon>
-                </template>
-                <template v-slot:append-inner>
-                  <v-icon @click="loadAnkiModels" color="primary">mdi-refresh</v-icon>
-                </template>
-              </v-combobox>
+                hide-details
+                readonly
+              ></v-text-field>
             </v-col>
           </v-row>
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>
 
-    <!-- Confirmation Dialog -->
-    <v-dialog v-model="confirmDialog.show" max-width="400">
-      <v-card>
-        <v-card-title class="text-h5">{{ confirmDialog.title }}</v-card-title>
-        <v-card-text>{{ confirmDialog.message }}</v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="success" variant="text" @click="confirmDialog.show = false" class="text-capitalize">
-            {{ util.getText('Cancel') }}
-          </v-btn>
-          <v-btn color="error" variant="text" @click="confirmDialog.confirm()" class="text-capitalize">
-            {{ util.getText('Confirm') }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <ConfirmDialog
+        v-model="showConfirmDialog"
+        :title="util.getText('Confirm Deletion')"
+        :message="util.getText('Are you sure you want to clear search history?')"
+        :cancelText="util.getText('Cancel')"
+        :confirmText="util.getText('Confirm')"
+        @confirm="confirmAction()"/>
   </div>
 </template>
 
 <script setup>
+    import ConfirmDialog from './comp/ConfirmDialog.vue';
     import { util } from '../util.js';
+    import { Model, Deck, Note, Package as AnkiPackage } from '../lib/genanki.js';
+    import initSqlJs from 'sql.js';
 </script>
 
 <script>
@@ -175,30 +161,16 @@ export default {
       importIsLoading: false,
       
       // Anki integration
-      ankiDecks: {
-        items: [],
-        loading: false
-      },
-      ankiModels: {
-        items: [],
-        loading: false
-      },
-      ankiLoading: {
-        export: false,
-        version: null
-      },
+      deckName: 'Sozdik.kz',
+      nodeType: 'Sozdik.kz',
+      exportingToAnki: false,
       ankiStatus: {
         message: '',
         type: 'info'
       },
-      
-      // Confirmation dialog
-      confirmDialog: {
-        show: false,
-        title: '',
-        message: '',
-        confirm: () => {}
-      }
+
+      showConfirmDialog: false,
+      confirmAction: () => {},
     };
   },
   
@@ -218,37 +190,30 @@ export default {
       });
 
       await this.load_history();
-      
-      // Initialize Anki integration
-      try {
-        this.ankiLoading.version = await util.ankiConnect('version');
-        console.log('Connected to Anki, version:', this.ankiLoading.version);
-
-        await this.loadAnkiDecks();
-        await this.loadAnkiModels();
-      } catch (error) {
-        this.setAnkiStatus('error', util.getText('Failed to connect to Anki. Make sure Anki is running with AnkiConnect plugin installed.'));
-      }
     },
     
     async load_history() {
       try {
-        this.searchHistory = await util.get_history();
+        const history = await util.get_history();
+        this.searchHistory = history.sort((a, b) => {
+          if (!!a.archived === !!b.archived) {
+            return new Date(b.date) - new Date(a.date);
+          }
+          return a.archived ? 1 : -1;
+        });
       } catch (error) {
         console.error("Error loading search history:", error);
         this.searchHistory = [];
       }
     },
 
-    async deleteHistoryItem(item) {
-      // Delete the item from the history
-      item.back = null;
-      util.add_to_history(item);
+    async toggleArchiveItem(item) {
+      await util.set_archive_status(item, !item.archived);
       await this.load_history();
     },
 
     searchHistoryItem(item) {
-      if (!item || !item.prefix || !item.front) return;
+      if (!item || !item.prefix || !item.front || item.archived) return;
       
       chrome.runtime.sendMessage({
         background: true,
@@ -258,22 +223,11 @@ export default {
     },
 
     clearHistory() {
-      this.showConfirmDialog(
-        util.getText('Confirm Deletion'),
-        util.getText('Are you sure you want to clear search history?'),
-        async () => {
-          await util.dbProxy.history.clear();
-          this.searchHistory = [];
-          this.confirmDialog.show = false;
-        }
-      );
-    },
-
-    showConfirmDialog(title, message, confirmCallback) {
-      this.confirmDialog.title = title;
-      this.confirmDialog.message = message;
-      this.confirmDialog.confirm = confirmCallback;
-      this.confirmDialog.show = true;
+      this.confirmAction = async () => {
+        await util.dbProxy.history.clear();
+        this.searchHistory = [];
+      };
+      this.showConfirmDialog = true;
     },
 
     async expandSozdikPanel() {
@@ -311,53 +265,92 @@ export default {
       this.current_word = progress;
     },
 
-    async loadAnkiDecks() {
-      await this.loadAnkiList('deckNames', this.ankiDecks);      
+    get_id_from_name(name) {
+      const hash = Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      return hash % 1000000000; // Ensure the ID is within a valid range
     },
 
-    async loadAnkiModels() {
-      await this.loadAnkiList('modelNames', this.ankiModels);
-    },
-
-    async loadAnkiList(type, list) {
-      try {
-        list.loading = true;
-        this.setAnkiStatus(null, null);
-        list.items = await util.ankiConnect(type);
-      } catch (error) {
-        this.setAnkiStatus('error', util.getText('Failed to connect to Anki. Make sure Anki is running with AnkiConnect plugin (ID: 2055492159) installed.'));
-      } finally {
-        list.loading = false;
-      }
-    },
-
-    async exportToAnki() {
-      const loaded = this.ankiLoading.version || this.ankiDecks.items.length > 0 || this.ankiModels.items.length > 0;
-      if (!loaded || !this.searchHistory.length || !util.options.ankiDeck || !util.options.ankiModel) {
-        this.setAnkiStatus('warning', util.getText('No cards were exported. Make sure your history contains items with translations.'));
+    async triggerExport() {
+      if (!this.searchHistory || this.searchHistory.length === 0) {
+        this.setAnkiStatus('warning', util.getText('No words to process or request count is 0.'));
         return;
       }
+      
+      this.exportingToAnki = true;
+      this.setAnkiStatus('info', util.getText('Exporting to Anki...'));
 
       try {
-        this.ankiLoading.export = true;
-        this.setAnkiStatus('info', util.getText('Exporting to Anki...'));
-
-        const results = await util.exportToAnki(this.searchHistory);
-
-        if(results.duplicates > 0 && results.failed === 0){
-          this.setAnkiStatus('warning', util.getText('Successfully exported {0} cards to Anki ({1} duplicates skipped)', [results.success, results.duplicates]));
-        } else if (results.success > 0) {
-          this.setAnkiStatus('success', results.failed > 0 ? 
-            util.getText('Successfully exported {0} cards to Anki ({1} failed)', [results.success, results.failed]) : 
-            util.getText('Successfully exported {0} cards to Anki', [results.success]));
-        } else if (results.failed > 0) {
-          this.setAnkiStatus('error', util.getText('Failed to export {0} cards to Anki. Check console for details.', [results.failed]));
+        // Initialize SQL.js if not already available globally
+        if (!window.SQL) {
+            try {
+                const SQL = await initSqlJs({
+                  locateFile: filename => `/js/sql/${filename}`
+                });
+                window.SQL = SQL;
+            } catch (e) {
+                console.error("Failed to load SQL.js", e);
+                throw new Error("Failed to load SQL.js: " + e.message);
+            }
         }
+
+        const modelId = this.get_id_from_name(this.nodeType);
+        const ankiModel = new Model({
+          id: modelId,
+          name: this.nodeType,
+          flds: [
+            { name: 'Front' },
+            { name: 'Back' },
+            { name: 'Sound' },
+            { name: 'Image' },
+            { name: 'Context' },
+            { name: 'Transcription' },
+          ],
+          req: [
+            [0, "all", [0]],
+          ],
+          tmpls: [
+            {
+              name: util.getText('mainTemplate') || 'Card 1',
+              qfmt: `<div>{{Front}}</div><div class="transcription">{{Transcription}}</div>`,
+              afmt: `<div>{{FrontSide}}</div><hr id=answer><div>{{Back}}</div><div><img src="{{Image}}"></div><div class="context">{{Context}}</div>`,
+            },
+          ],
+          css: `.card { font-family: arial; font-size: 1.5rem; text-align: center; color: black; background-color: white; }`,
+        });
+
+        const ankiDeck = new Deck(modelId + 1, this.deckName);
+        const ankiPackage = new AnkiPackage();
+        ankiPackage.addDeck(ankiDeck);
+
+        const wordsToExport = this.searchHistory.filter(item => !item.archived);
+
+        if (wordsToExport.length === 0) {
+            this.setAnkiStatus('warning', util.getText('No words to process or request count is 0.'));
+            return;
+        }
+
+        for (const item of wordsToExport) {
+          if (!item.front || !item.back) continue;
+
+          const note = new Note(ankiModel, [
+            item.front,
+            item.back,
+            '', // Sound
+            '', // Image
+            '', // Context
+            '', // Transcription
+          ]);
+          ankiDeck.addNote(note);
+        }
+
+        const fileName = `${ wordsToExport.length }-Sozdik.kz-${ new Date().toISOString().split('T')[0] }.apkg`;
+        ankiPackage.writeToFile(fileName);
+        this.setAnkiStatus('success', util.getText('Successfully exported {0} cards to Anki', [fileName]));
       } catch (error) {
         console.error('Error exporting to Anki:', error);
         this.setAnkiStatus('error', util.getText('Failed to export to Anki: {0}', [error.message]));
       } finally {
-        this.ankiLoading.export = false;
+        this.exportingToAnki = false;
       }
     },
 
@@ -367,4 +360,4 @@ export default {
     }
   }
 }
-</script> 
+</script>

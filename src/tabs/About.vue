@@ -70,7 +70,7 @@ export default {
       await this.saveOptions();
       this.languageKey++;
 
-      console.log(stable_languages_list)
+      // console.log(stable_languages_list)
     },
 
     getCurrentLanTitle(){

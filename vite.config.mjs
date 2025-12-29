@@ -17,7 +17,17 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: fileURLToPath(new URL('./popup.html', import.meta.url)),
-        sidepanel: fileURLToPath(new URL('./sidepanel.html', import.meta.url))
+        sidepanel: fileURLToPath(new URL('./sidepanel.html', import.meta.url)),
+        background: fileURLToPath(new URL('./src/background.js', import.meta.url)), // Added background script entry
+      },
+      output: {
+        entryFileNames: (chunkInfo) => {
+          // Keep the original name for background.js and place it in the root
+          if (chunkInfo.name === 'background') {
+            return 'background.js';
+          }
+          return 'assets/[name]-[hash].js';
+        }
       }
     }
   },
@@ -50,21 +60,25 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: 'src/background.js',
-          dest: './',
+          src: 'node_modules/sql.js/dist/sql-wasm.wasm',
+          dest: 'js/sql'
         },
-        {
-          src: 'src/util.js',
-          dest: './',
-        },
-        {
-          src: 'src/translations.js',
-          dest: './',
-        },
-        {
-          src: 'src/lib/dexie.min.mjs',
-          dest: './lib/',
-        }
+        // {
+        //   src: 'src/background.js',
+        //   dest: './',
+        // },
+        // {
+        //   src: 'src/util.js',
+        //   dest: './',
+        // },
+        // {
+        //   src: 'src/translations.js',
+        //   dest: './',
+        // },
+        // {
+        //   src: 'src/lib/dexie.min.mjs',
+        //   dest: './lib/',
+        // }
       ],
     }),
 

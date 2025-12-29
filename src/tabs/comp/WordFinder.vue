@@ -73,7 +73,7 @@ export default {
                 if (this.regex.test(char)) {
                     filteredWord += char;
                 }
-            this.word = filteredWord;
+            this.word = filteredWord.toLowerCase();
             if(!this.word)
                 return;
 
